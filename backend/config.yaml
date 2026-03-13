@@ -1,0 +1,7 @@
+llm:
+  api_key: "sk-xxxxxxxxx"            # 可通过 LLM_API_KEY 环境变量覆盖
+  base_url: "https://api.openai.com/v1"
+  boss_model: "gpt-4o"
+  researcher_model: "gpt-3.5-turbo"
+  content_model: "gpt-4-turbo"
+  visual_model: "gpt-4o"

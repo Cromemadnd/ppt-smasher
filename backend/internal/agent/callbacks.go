@@ -40,10 +40,18 @@ func (h *WsCallbackHandler) OnError(ctx context.Context, info *callbacks.RunInfo
 	return ctx
 }
 
+func (h *WsCallbackHandler) OnStartWithStreamInput(ctx context.Context, info *callbacks.RunInfo, input *schema.StreamReader[callbacks.CallbackInput]) context.Context {
+	return ctx
+}
+
+func (h *WsCallbackHandler) OnEndWithStreamOutput(ctx context.Context, info *callbacks.RunInfo, output *schema.StreamReader[callbacks.CallbackOutput]) context.Context {
+	return ctx
+}
+
 // OnChatModelGenerateBody 大模型流式输出片段，触发 AGENT_THOUGHT_STREAM
 func (h *WsCallbackHandler) OnChatModelGenerateBody(ctx context.Context, info *callbacks.RunInfo, chunk *schema.Message) context.Context {
 	h.Sender.SendMsg("AGENT_THOUGHT_STREAM", map[string]string{
-		"nodeId": info.ComponentID,
+		"nodeId": info.Name,
 		"chunk":  chunk.Content,
 		"status": "pending",
 	})

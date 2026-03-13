@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     ReactFlow,
     Background,
@@ -25,6 +25,15 @@ import {
 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import {
+    useWebSocket,
+    MsgTypeStartTask,
+    MsgTypeUploadFile,
+    MsgTypeKnowledgeBaseUpdate,
+    MsgTypeNodeActive,
+    MsgTypeEdgeActive,
+    MsgTypeAgentThoughtStream,
+} from './hooks/useWebSocket';
 
 function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs));
@@ -54,8 +63,8 @@ const mockFiles: FileItem[] = [
     { id: '3', name: 'Company_Logo.png', type: 'image', desc: 'Brand logo for slides' },
 ];
 
-const MOCK_ACTIVE_NODE = 'boss';
-const MOCK_ACTIVE_EDGES = ['user-boss', 'boss-researcher'];
+const MOCK_ACTIVE_NODE = '';
+const MOCK_ACTIVE_EDGES: string[] = [];
 
 // ----------------------------------------
 // Custom Nodes
@@ -112,7 +121,7 @@ const initialNodes: Node[] = [
     { id: 'user', type: 'agent', position: { x: 400, y: 50 }, data: { label: 'User', icon: Users } },
 
     // Level 2: Boss
-    { id: 'boss', type: 'agent', position: { x: 400, y: 200 }, data: { label: 'Boss Agent', role: 'Core Coordinator', icon: Brain, isActive: true } },
+    { id: 'boss', type: 'agent', position: { x: 400, y: 200 }, data: { label: 'Boss Agent', role: 'Core Coordinator', icon: Brain, isActive: false } },
 
     // Level 3: Researchers & Leaders
     { id: 'researcher', type: 'agent', position: { x: 100, y: 350 }, data: { label: 'Researcher', role: 'Data Gatherer', icon: Search } },
@@ -177,12 +186,59 @@ const initialEdges: Edge[] = [
 export default function WorkflowUI() {
     const [files, setFiles] = useState<FileItem[]>(mockFiles);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+    const [nodes, setNodes] = useState<Node[]>(initialNodes);
+    const [edges, setEdges] = useState<Edge[]>(initialEdges);
+    const [inputValue, setInputValue] = useState("");
+    const [agentThoughts, setAgentThoughts] = useState<Record<string, string>>({});
+
+    const { sendMessage, messages } = useWebSocket("ws://localhost:8080/ws");
+
+    useEffect(() => {
+        if (messages.length === 0) return;
+        const lastMsg = messages[messages.length - 1];
+        const { type, payload } = lastMsg;
+
+        if (type === MsgTypeNodeActive) {
+            setNodes((nds) => nds.map((n) => ({
+                ...n,
+                data: {
+                    ...n.data,
+                    isActive: n.id === payload.nodeId || payload.nodeId === 'all'
+                }
+            })));
+        } else if (type === MsgTypeEdgeActive) {
+            setEdges((eds) => eds.map((e) => ({
+                ...e,
+                ...(e.id === payload.edgeId
+                    ? { ...activeEdgeOptions }
+                    : { ...defaultEdgeOptions }
+                )
+            })));
+        } else if (type === MsgTypeAgentThoughtStream) {
+            setAgentThoughts((prev) => ({
+                ...prev,
+                [payload.nodeId]: (prev[payload.nodeId] || "") + payload.chunk
+            }));
+        } else if (type === MsgTypeKnowledgeBaseUpdate) {
+            setFiles((prev) => [
+                ...prev,
+                { id: String(Date.now()), name: payload.fileName, type: 'doc', desc: payload.desc }
+            ]);
+        }
+    }, [messages]);
+
+    const handleSendTask = () => {
+        if (!inputValue.trim()) return;
+        sendMessage(MsgTypeStartTask, { theme: inputValue });
+        setInputValue("");
+        setAgentThoughts({});
+    };
 
     const handleDescChange = (id: string, newDesc: string) => {
         setFiles(files.map(f => f.id === id ? { ...f, desc: newDesc } : f));
     };
 
-    const selectedNode = initialNodes.find(n => n.id === selectedNodeId);
+    const selectedNode = nodes.find(n => n.id === selectedNodeId);
 
     return (
         <div className="flex h-screen w-full bg-slate-50 font-sans overflow-hidden">
@@ -228,10 +284,16 @@ export default function WorkflowUI() {
                     <div className="bg-white/90 backdrop-blur-md border border-slate-200 shadow-lg rounded-2xl p-2 flex items-center gap-2 pointer-events-auto ring-1 ring-blue-500/10">
                         <input
                             type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && handleSendTask()}
                             placeholder="输入 PPT 生成主题、你的观点..."
                             className="flex-1 bg-transparent border-none outline-none px-4 py-2 text-slate-800 placeholder-slate-400"
                         />
-                        <button className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-sm shadow-blue-500/30 text-sm">
+                        <button
+                            onClick={handleSendTask}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-2.5 rounded-xl font-medium flex items-center gap-2 transition-colors shadow-sm shadow-blue-500/30 text-sm"
+                        >
                             <MessageSquare size={16} />
                             发送
                         </button>
@@ -241,8 +303,8 @@ export default function WorkflowUI() {
                 {/* React Flow Canvas */}
                 <div className="flex-1">
                     <ReactFlow
-                        nodes={initialNodes}
-                        edges={initialEdges}
+                        nodes={nodes}
+                        edges={edges}
                         nodeTypes={nodeTypes}
                         onNodeClick={(_, node) => setSelectedNodeId(node.id)}
                         onPaneClick={() => setSelectedNodeId(null)}
@@ -275,9 +337,14 @@ export default function WorkflowUI() {
 
                             <div className="flex-1 overflow-y-auto p-5">
                                 {/* Thought Bubble */}
-                                <div className="relative bg-blue-50 border border-blue-100 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-700 italic mb-8">
-                                    "正在调用 Researcher 查找相关文献与统计学资料，以准备核心 PPT 内容结构..."
-                                </div>
+                                {agentThoughts[selectedNode.id] && (
+                                    <div className="relative bg-blue-50 border border-blue-100 rounded-2xl rounded-tl-sm p-4 text-sm text-slate-700 italic mb-8 whitespace-pre-wrap flex flex-col gap-2">
+                                        <div className="flex gap-2 mb-2 items-center text-blue-500 font-semibold border-b border-blue-100 pb-2">
+                                            <Brain size={16} /> 思考过程
+                                        </div>
+                                        {agentThoughts[selectedNode.id]}
+                                    </div>
+                                )}
 
                                 {/* Timeline */}
                                 <h4 className="font-semibold text-slate-800 mb-4 px-1">执行流程与思考</h4>

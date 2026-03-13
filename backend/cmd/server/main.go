@@ -3,14 +3,24 @@ package main
 import (
 	"log"
 	"net/http"
+	"ppt-stasher-backend/internal/agent"
+	"ppt-stasher-backend/internal/config"
 	"ppt-stasher-backend/internal/db"
 	"ppt-stasher-backend/internal/ws"
 )
 
 func main() {
+	// 0. 初始化配置
+	config.InitConfig()
+
 	// 1. 初始化 SQLite 与 ORM (ent)
 	db.InitDB()
 	defer db.Client.Close()
+
+	// 1.1 初始化 Agent 编排
+	if err := agent.InitWorkflow(); err != nil {
+		log.Fatalf("InitWorkflow error: %v", err)
+	}
 
 	// 2. 初始化 Websocket 消息枢纽
 	hub := ws.NewHub()

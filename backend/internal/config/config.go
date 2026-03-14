@@ -12,12 +12,15 @@ type Config struct {
 }
 
 type LLMConfig struct {
-	APIKey          string `mapstructure:"api_key"`
-	BaseURL         string `mapstructure:"base_url"`
-	BossModel       string `mapstructure:"boss_model"`
-	ResearcherModel string `mapstructure:"researcher_model"`
-	ContentModel    string `mapstructure:"content_model"`
-	VisualModel     string `mapstructure:"visual_model"`
+	APIKey            string `mapstructure:"api_key"`
+	BaseURL           string `mapstructure:"base_url"`
+	BossModel         string `mapstructure:"boss_model"`
+	ResearcherModel   string `mapstructure:"researcher_model"`
+	ContentModel      string `mapstructure:"content_model"`
+	VisualModel       string `mapstructure:"visual_model"`
+	EmbeddingProvider string `mapstructure:"embedding_provider"` // "openai" is currently supported
+	EmbeddingModel    string `mapstructure:"embedding_model"`
+	EmbeddingDim      int    `mapstructure:"embedding_dim"`
 }
 
 var GlobalConfig *Config

@@ -1,12 +1,14 @@
-package agent
+package workflow
 
 import (
 	"context"
-	"log"
-
-	"ppt-stasher-backend/internal/config"
-
 	"github.com/cloudwego/eino/compose"
+	"log"
+	"ppt-stasher-backend/internal/config"
+	"ppt-stasher-backend/internal/workflow/content"
+	"ppt-stasher-backend/internal/workflow/render"
+	"ppt-stasher-backend/internal/workflow/research"
+	"ppt-stasher-backend/internal/workflow/template"
 )
 
 // BuildBossGraph 构建 Boss 作为最高层级的 Graph 编排，
@@ -18,19 +20,19 @@ func BuildBossGraph() (compose.Runnable[WorkflowState, WorkflowState], error) {
 	log.Printf("Boss Model initialized with %s", bossModelID)
 
 	// 获取各个独立编排子团队
-	researchGraph, err := BuildResearchTeamGraph().Compile(context.Background())
+	researchGraph, err := research.BuildResearchTeamGraph().Compile(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	templateGraph, err := BuildTemplateAnalystGraph().Compile(context.Background())
+	templateGraph, err := template.BuildTemplateAnalystGraph().Compile(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	contentGraph, err := BuildContentTeamGraph().Compile(context.Background())
+	contentGraph, err := content.BuildContentTeamGraph().Compile(context.Background())
 	if err != nil {
 		return nil, err
 	}
-	renderGraph, err := BuildRenderTeamGraph().Compile(context.Background())
+	renderGraph, err := render.BuildRenderTeamGraph().Compile(context.Background())
 	if err != nil {
 		return nil, err
 	}
@@ -46,21 +48,21 @@ func BuildBossGraph() (compose.Runnable[WorkflowState, WorkflowState], error) {
 
 	_ = g.AddLambdaNode("call_tool_research", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
 		log.Println("[Boss -> Tool Call] 召唤 Research Team...")
-		rs, _ := researchGraph.Invoke(ctx, TeamResearchState{Theme: s.Theme, GivenDocuments: s.GivenDocuments})
+		rs, _ := researchGraph.Invoke(ctx, research.TeamResearchState{Theme: s.Theme, GivenDocuments: s.GivenDocuments})
 		s.KnowledgeReady = rs.VDBStatus
 		return s, nil
 	}))
 
 	_ = g.AddLambdaNode("call_tool_template", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
 		log.Println("[Boss -> Tool Call] 召唤 Template Analyst...")
-		ts, _ := templateGraph.Invoke(ctx, TeamTemplateState{ReferencePPT: s.ReferencePPT})
+		ts, _ := templateGraph.Invoke(ctx, template.TeamTemplateState{ReferencePPT: s.ReferencePPT})
 		s.LayoutSchemas = ts.Schemas
 		return s, nil
 	}))
 
 	_ = g.AddLambdaNode("call_tool_content", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
 		log.Println("[Boss -> Tool Call] 召唤 Content Team 开始共创文案大纲与版式分配...")
-		cs, _ := contentGraph.Invoke(ctx, TeamContentState{VDBStatus: s.KnowledgeReady, AvailableLayouts: s.LayoutSchemas})
+		cs, _ := contentGraph.Invoke(ctx, content.TeamContentState{VDBStatus: s.KnowledgeReady, AvailableLayouts: s.LayoutSchemas})
 		s.ContentDrafts = cs.FilledContentDraft
 		s.Outline = cs.Outline
 		return s, nil
@@ -68,7 +70,7 @@ func BuildBossGraph() (compose.Runnable[WorkflowState, WorkflowState], error) {
 
 	_ = g.AddLambdaNode("call_tool_render", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
 		log.Println("[Boss -> Tool Call] 召唤 Render Team 编写 Python 代码渲染出 PPTX...")
-		rs, _ := renderGraph.Invoke(ctx, TeamRenderState{ContentDrafts: s.ContentDrafts})
+		rs, _ := renderGraph.Invoke(ctx, render.TeamRenderState{ContentDrafts: s.ContentDrafts})
 		s.PPTXFiles = rs.RenderResults
 		return s, nil
 	}))

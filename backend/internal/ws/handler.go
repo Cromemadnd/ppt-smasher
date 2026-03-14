@@ -42,7 +42,7 @@ func HandleClientMessage(c *Client, msg []byte) {
 		}
 
 	case MsgTypeUpdateFileDesc:
-		// TODO 更新 SQLite
+		// TODO 更新 LanceDB
 	default:
 		log.Printf("Unknown message type: %s", m.Type)
 	}

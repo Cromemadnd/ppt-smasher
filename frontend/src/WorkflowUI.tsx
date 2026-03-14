@@ -3,7 +3,6 @@ import {
     ReactFlow,
     Background,
     Controls,
-    MiniMap,
     type Node,
     type Edge,
     MarkerType,
@@ -28,7 +27,6 @@ import { twMerge } from 'tailwind-merge';
 import {
     useWebSocket,
     MsgTypeStartTask,
-    MsgTypeUploadFile,
     MsgTypeKnowledgeBaseUpdate,
     MsgTypeNodeActive,
     MsgTypeEdgeActive,
@@ -63,14 +61,13 @@ const mockFiles: FileItem[] = [
     { id: '3', name: 'Company_Logo.png', type: 'image', desc: 'Brand logo for slides' },
 ];
 
-const MOCK_ACTIVE_NODE = '';
 const MOCK_ACTIVE_EDGES: string[] = [];
 
 // ----------------------------------------
 // Custom Nodes
 // ----------------------------------------
-const AgentNode = ({ data, id }: { data: CustomNodeData; id: string }) => {
-    const Icon = data.icon || Brain;
+const AgentNode = ({ data }: { data: CustomNodeData; id: string }) => {
+    const Icon = (data.icon as React.ElementType) || Brain;
     const isActive = data.isActive;
 
     return (
@@ -94,8 +91,8 @@ const AgentNode = ({ data, id }: { data: CustomNodeData; id: string }) => {
     );
 };
 
-const DataNode = ({ data, id }: { data: CustomNodeData; id: string }) => {
-    const Icon = data.icon || Database;
+const DataNode = ({ data }: { data: CustomNodeData; id: string }) => {
+    const Icon = (data.icon as React.ElementType) || Database;
     return (
         <div className="rounded-xl border-2 border-slate-200 bg-slate-50 px-6 py-4 flex items-center gap-3 shadow-sm min-w-[180px]">
             <Handle type="target" position={Position.Top} className="!bg-blue-400" />
@@ -327,11 +324,11 @@ export default function WorkflowUI() {
                         <>
                             <div className="p-5 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white flex items-center gap-4">
                                 <div className="p-3 bg-blue-500 text-white rounded-xl shadow-md shadow-blue-500/20">
-                                    {selectedNode.data.icon && React.createElement(selectedNode.data.icon as React.ElementType, { size: 24 })}
+                                    {selectedNode.data.icon ? (React.createElement(selectedNode.data.icon as React.ElementType, { size: 24 }) as React.ReactNode) : null}
                                 </div>
                                 <div>
-                                    <h3 className="font-bold text-lg text-slate-800">{selectedNode.data.label}</h3>
-                                    <p className="text-sm text-blue-600 font-medium">{selectedNode.data.role}</p>
+                                    <h3 className="font-bold text-lg text-slate-800">{(selectedNode.data.label as React.ReactNode) || ""}</h3>
+                                    <p className="text-sm text-blue-600 font-medium">{(selectedNode.data.role as React.ReactNode) || ""}</p>
                                 </div>
                             </div>
 

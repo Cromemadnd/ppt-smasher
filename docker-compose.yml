@@ -29,7 +29,7 @@ services:
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
       # 将编译后的前端文件传递给 nginx
-      - frontend/dist:/usr/share/nginx/html:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
     networks:
       - app-network
     depends_on:

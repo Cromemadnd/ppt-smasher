@@ -46,6 +46,6 @@ func RunWorkflow(sender WsSender, theme string) {
 
 	// 4. 发送最终成功消息
 	sender.SendMsg("TASK_SUCCESS", map[string]interface{}{
-		"result": result.VisualLinks,
+		"result": result.PPTXFiles,
 	})
 }

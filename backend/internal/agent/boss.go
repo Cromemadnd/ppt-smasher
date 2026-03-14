@@ -9,39 +9,76 @@ import (
 	"github.com/cloudwego/eino/compose"
 )
 
-// BuildBossGraph 构建 Boss 作为最高层级的 Graph 编排
-// 在这里 Boss 会将下位 Agent (Researcher, ContentLeader, VisualLeader) 作为 Tool 或下游节点调用。
+// BuildBossGraph 构建 Boss 作为最高层级的 Graph 编排，
+// 也是基于 ReAct State Orchestrator 来动态分发子任务给不同的团队。
 func BuildBossGraph() (compose.Runnable[WorkflowState, WorkflowState], error) {
 	g := compose.NewGraph[WorkflowState, WorkflowState]()
 
-	// 1. 初始化 Boss 节点以及它手下的下位 Agent (也是 Graph)
 	bossModelID := config.GlobalConfig.LLM.BossModel
 	log.Printf("Boss Model initialized with %s", bossModelID)
 
-	// 获取下位 Agent 的编排 Runnable
-	researcherGraph := BuildResearcherGraph()
-	contentGraph := BuildContentLeaderGraph()
-	visualGraph := BuildVisualGraph()
+	// 获取各个独立编排子团队
+	researchGraph, err := BuildResearchTeamGraph().Compile(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	templateGraph, err := BuildTemplateAnalystGraph().Compile(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	contentGraph, err := BuildContentTeamGraph().Compile(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	renderGraph, err := BuildRenderTeamGraph().Compile(context.Background())
+	if err != nil {
+		return nil, err
+	}
 
-	// 2. 将下位 Graph 作为节点注册（上位 Agent 调用它们。这里我们用节点模拟工具调用流程）
-	// 在真实的纯 Agent 场景中，可以使用 BindTools 把 Runnable 封装为 Tool 给 Boss 的大模型调用，
-	// 此处为示范：Boss 作路由/拆解，依次唤起各个子 Graph 处理具体逻辑。
-	_ = g.AddLambdaNode("boss_node", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
-		log.Printf("[Boss] 接收到任务，开始规划拆解，主题: %s", s.Theme)
-		// Boss 处理自身逻辑...
+	// -------------------------------------------------------------
+	// 将下层Agent编排封装进Boss的执行流中，作为 Tools 供上层大模型调用。
+	// -------------------------------------------------------------
+
+	_ = g.AddLambdaNode("boss_reasoning", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
+		log.Printf("[Boss] 分析用户需求，主题: '%s', 然后决定调度哪些下层 Agent.", s.Theme)
 		return s, nil
 	}))
 
-	_ = g.AddGraphNode("researcher_node", researcherGraph)
-	_ = g.AddGraphNode("content_node", contentGraph)
-	_ = g.AddGraphNode("visual_node", visualGraph)
+	_ = g.AddLambdaNode("call_tool_research", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
+		log.Println("[Boss -> Tool Call] 召唤 Research Team...")
+		rs, _ := researchGraph.Invoke(ctx, TeamResearchState{Theme: s.Theme, GivenDocuments: s.GivenDocuments})
+		s.KnowledgeReady = rs.VDBStatus
+		return s, nil
+	}))
 
-	// 3. 编排连线 (Boss -> Researcher -> Content -> Visual)
-	_ = g.AddEdge(compose.START, "boss_node")
-	_ = g.AddEdge("boss_node", "researcher_node")
-	_ = g.AddEdge("researcher_node", "content_node")
-	_ = g.AddEdge("content_node", "visual_node")
-	_ = g.AddEdge("visual_node", compose.END)
+	_ = g.AddLambdaNode("call_tool_template", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
+		log.Println("[Boss -> Tool Call] 召唤 Template Analyst...")
+		ts, _ := templateGraph.Invoke(ctx, TeamTemplateState{ReferencePPT: s.ReferencePPT})
+		s.LayoutSchemas = ts.Schemas
+		return s, nil
+	}))
+
+	_ = g.AddLambdaNode("call_tool_content", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
+		log.Println("[Boss -> Tool Call] 召唤 Content Team 开始共创文案大纲与版式分配...")
+		cs, _ := contentGraph.Invoke(ctx, TeamContentState{VDBStatus: s.KnowledgeReady, AvailableLayouts: s.LayoutSchemas})
+		s.ContentDrafts = cs.FilledContentDraft
+		s.Outline = cs.Outline
+		return s, nil
+	}))
+
+	_ = g.AddLambdaNode("call_tool_render", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
+		log.Println("[Boss -> Tool Call] 召唤 Render Team 编写 Python 代码渲染出 PPTX...")
+		rs, _ := renderGraph.Invoke(ctx, TeamRenderState{ContentDrafts: s.ContentDrafts})
+		s.PPTXFiles = rs.RenderResults
+		return s, nil
+	}))
+
+	_ = g.AddEdge(compose.START, "boss_reasoning")
+	_ = g.AddEdge("boss_reasoning", "call_tool_research")
+	_ = g.AddEdge("call_tool_research", "call_tool_template")
+	_ = g.AddEdge("call_tool_template", "call_tool_content")
+	_ = g.AddEdge("call_tool_content", "call_tool_render")
+	_ = g.AddEdge("call_tool_render", compose.END)
 
 	return g.Compile(context.Background())
 }

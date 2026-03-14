@@ -1,6 +1,8 @@
+# PPTAgent Original LICENCE
+
 MIT License
 
-Copyright (c) 2026 Cromemadnd
+Copyright (c) 2025 ICIP-CAS
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

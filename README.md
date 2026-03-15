@@ -1,14 +1,36 @@
 # PPT Smasher
 
+> Work in progress: 本项目仍处于早期开发阶段
+
 一个基于 Eino 的 PPT 生成多智能体 Agent 编排。
 
-![img](./docs/img.png)
-
-受 [PPTAgent](https://github.com/icip-cas/PPTAgent)，[扣子](https://www.coze.cn/) 与 [Google NotebookLM](https://notebooklm.google.com/) 启发而设计。
+![img](./docs/frontend.png)
 
 许可证：[MIT](./LICENCE)
 
-## 特色
+## 致谢
+
+本项目在以下设计中参考了[PPTAgent(DeepPresenter)](https://github.com/icip-cas/PPTAgent)，在此对原项目团队致以深刻的感谢。
+
+- 读取模板 PPTX 中 XML 供 LLM 进行解析、理解与聚类的思路
+- 使用 Python REPL 供 Agent 反馈与即时纠错的思路
+- PPTEval 评判标准
+- 部分 Agent Prompt 的编写
+
+## 痛点分析
+
+为什么要设计 PPT Smasher？是因为在使用目前的 PPT 生成工具时，我们经常会遇到这些问题：
+
+- **生成链路的黑盒化**: 大多数 AI PPT 工具是“一键式”生成，用户无法干预中间过程。你不知道 AI 引用了哪条数据，也不知道它为什么这么排版。一旦生成的逻辑跑偏，用户只能反复重试，效率极低。
+  - Smasher 的解法：引入断点级交互。在大纲生成、素材填充、脚本渲染的每一个关键节点，系统都会停下来请你“检阅”。
+
+- **样式与内容强耦合**: 如果你想更换一个 PPT 模板，现有的 AI 工具通常会把内容也重新洗牌。由于缺乏对模板底层 Schema 的解构，AI 很难在保证“内容不动”的前提下，精准地把信息迁移到新的视觉风格中。
+  - Smasher 的解法：采用样式与内容解耦设计。通过 Template Team 预先提取模板的“坑位”协议（JSON Schema），实现“逻辑归逻辑，皮肤归皮肤”。
+
+- **缺乏对资料的浅层理解**: 很多工具甚至不支持上传参考资料，而也有很多工具只是简单地把 PDF 塞给 LLM。面对包含大量图表、复杂逻辑的参考资料时，生成的 PPT 内容往往浮于表面，缺乏深度。
+  - Smasher 的解法：借鉴 NotebookLM 的思路，构建三维记忆库系统。利用 MinerU 深度解析文档图文，确保 Agent 不仅读过你的资料，还能真正理解数据间的支撑关系。
+
+## 解决方案
 
 - **Multi Agent 协同：** 采用树状“分层管理结构”设计，像[一支分工明确的外包团队](#agents-分工)一样，听从你的指令、参考你的资料、展示你的观点。
 - **数据全透明：** 所有 Agent 的全部思考过程、工作日志、数据流向全部可以随时查阅与追踪。如果出现了任何方向或细节的跑偏，你随时可以打断工作流进行实时纠偏。
@@ -23,15 +45,18 @@
 > 其中内容维的数据使用了基于 LanceDB 的 RAG，另外两维的指令与规则则直接注入对应 Agent 的提示词中。
 
 - **样式与内容解耦：** 支持只更换视觉风格，内容逻辑在不同模版间平滑迁移，真正实现“换装不换脑”。
-- **断点级交互：** 在生成大纲、排版预览等每一个关键阶段，你都可以直接下令修改，实现“人机共创”的丝滑体验。
+- **断点级交互：** 在生成大纲、排版预览等每一个关键阶段，你都可以直接下令修
+改，实现“人机共创”的丝滑体验。
 
-## Agents 分工
+## 架构设计与 Agent 分工
 
-![Architecture](./docs/architecture.svg)
+![Flowchart](./docs/flowchart.svg) 这是项目核心的工作流程。
 
 让我们来详细了解一下这支"专业外包团队"。这套架构深度借鉴了微服务解耦设计的思想，将不同领域的职责完全隔离开来，每个子 Agent 都作为父 Agent 的一个 Tool 被使用。
 
 每支子团队都有一个 Leader 来统筹全局、评估与调度工作，形成闭环。
+
+![Architecture](./docs/architecture.svg)
 
 ### Boss 项目经理
 
@@ -53,8 +78,8 @@
 - **定位**：负责资料搜索与整合，将海量资料收敛成零散的知识。
 - **职责**：吞吐你上传的参考资料，并根据 Boss 下发的搜索主题联网搜索补充。
 - **并行工作流**：
-    - `WebSearch` (基于 Tavily)：联网搜索图片、文献、统计资料。
-    - `ParseDocs` (基于 MinerU)：先使用 MinerU 解析你上传的文档，再使用 VLM 根据文档中的图片、上传的其他图片生成简短的描述。
+    - **WebSearch** (基于 Tavily)：联网搜索图片、文献、统计资料。
+    - **ParseDocs** (基于 MinerU)：先使用 MinerU 解析你上传的文档，再使用 VLM 根据文档中的图片、上传的其他图片生成简短的描述。
 - **输出**：所有资料清洗后统一进行向量化（Index），存入 VDB，构建成项目专属的知识底座。
 
 ### Content Team 内容创作团队
@@ -71,25 +96,24 @@
 - **定位**：负责排版与渲染，通过精准的代码编辑修改模板，输出最终幻灯片。
 - **职责**：接收 Content Team 敲定的文案和分配好的 Schema，用程序化手段将其映射进参考风格中。
 - **视觉闭环**：
-    - `Script Coder`：从 负责根据 HTML 导航视图，生成可执行的编辑动作 Python 代码（如 `replace_span`、`replace_image`、`clone_paragraph` 等）去修改模板。代码生成后直接在本地执行，一旦碰到报错（如操作了不存在的元素），它会根据执行反馈进行自我纠错并重试，直到生成动作成功执行。
-    - `PPTEval Judge`：基于大模型与PPTEval标准对生成的演示文稿进行最后验收。严格按照三大维度打分：**内容（Content）**（文案是否精简、配图是否契合）、**设计（Design）**（色彩是否和谐、是否存在元素重叠等瑕疵）和**连贯性（Coherence）**（逻辑发展是否顺畅、有无背景交代）。综合得分不达标的页面会被直接打回重审。
+    - **Script Coder**：从 负责根据 HTML 导航视图，生成可执行的编辑动作 Python 代码（如 `replace_span`、`replace_image`、`clone_paragraph` 等）去修改模板。代码生成后直接在本地执行，一旦碰到报错（如操作了不存在的元素），它会根据执行反馈进行自我纠错并重试，直到生成动作成功执行。
+    - **PPTEval Judge**：基于大模型与 `PPTEval` 标准对生成的演示文稿进行最后验收。严格按照三大维度打分：**内容（Content）**（文案是否精简、配图是否契合）、**设计（Design）**（色彩是否和谐、是否存在元素重叠等瑕疵）和**连贯性（Coherence）**（逻辑发展是否顺畅、有无背景交代）。综合得分不达标的页面会被直接打回重审。
 - **输出**：生成最终可供演示、版式完美且逻辑严密的 PPT 文件。
 
-### 核心工作流
+## 项目 Roadmap
 
-![Flowchart](./docs/flowchart.svg)
+可能会随项目开发随时增删改。
 
-1.  **需求与物料注入 (Input & Initialization)** 你向 Boss 交代本次 PPT 的主题，并“喂”给它两样东西：一批**参考资料**（原始文本/数据）和一份**你中意的参考 PPT**（视觉模板）。
-2.  **双线基建开工 (Parallel Preparation)**
-    *   **知识线**：Research Team 吞吐参考资料，联网检索补充，清洗后全部存入向量数据库（VDB），构建项目专属知识底座。
-    *   **视觉线**：Template Analyst 解剖你给的参考 PPT，提取出各个页面的内容结构（JSON Schema），并渲染出直观易读的 HTML 导航视图。
-3.  **大纲与版式共创 (Outline & Layout Mapping)** Content Team 中的 `Outline Director` 根据 VDB 起草逻辑大纲。这里的关键是：**它会为大纲的每一页，精准指定一个刚才提取出的对应模板版式**。
-    > Boss 会在这里把带着“版式规划”的大纲提交给你。你确认逻辑通顺、版式分配合理后，一键放行。
-4.  **血肉精准填充 (Content Filling & Critic)** 大纲敲定后，`Content Filler` 将 VDB 里的详细文案、图表，精准地塞进分配好的 Schema 骨架的“坑位”中。内部的 `Content Critic` 负责死磕事实，防止出现逻辑断层或 AI 幻觉。
-5.  **代码驱动渲染与纠错 (Code-Driven Rendering & REPL)**
-    `Script Coder` 看着 HTML 视图和填好的 Schema，编写出（比如调用 `replace_span` 或 `replace_image` API）。脚本直接在内置沙盒中运行去修改底层模板。遇到报错，沙盒会提供执行反馈，Agent 据此自动改 Bug 并重试，直至动作全部成功。
-6.  **冷酷终审与交付 (Final Evaluation & Delivery)** 幻灯片渲染完成后，`PPTEval Judge` 拿着“放大镜”上场，严格按照**内容 (Content)**、**设计 (Design)** 和**连贯性 (Coherence)** 三个核心维度打分。综合得分达标则大功告成，产出最终的 PPTX 文件；发现瑕疵（如文字溢出、逻辑不畅）则直接打回给对应环节重造。
-
-## 致谢
-
-本项目的实现思路与 Agent Prompt 极大程度上参考了[PPTAgent(DeepPresenter)](https://github.com/icip-cas/PPTAgent)，非常感谢！
+- [✔] 整体架构设计
+- [✔] 前端 UI Demo
+- [✔] 基础 RAG 搭建
+- [✔] Template Team 的 MVP
+- [✔] Researcher 的 MVP
+- [✔] Content Team 的 MVP
+- [  ] Render Team 的 MVP
+- [  ] Boss 的 MVP
+- [  ] 三维知识库搭建
+- [  ] 后端编排全流程调试
+- [  ] 前端 UI 重构
+- [  ] 前后端通信协议重构
+- [  ] 前后端联调

@@ -1,20 +1,19 @@
 package render
 
 import (
-	"context"
-	"github.com/cloudwego/eino/compose"
 	"log"
 	"ppt-stasher-backend/internal/config"
-	"ppt-stasher-backend/internal/workflow/render/subagents"
+
+	"github.com/cloudwego/eino/compose"
 )
 
 func BuildRenderTeamGraph() *compose.Graph[TeamRenderState, TeamRenderState] {
 	g := compose.NewGraph[TeamRenderState, TeamRenderState]()
-	modelID := config.GlobalConfig.LLM.CoderModel
+	modelID := config.GlobalConfig.LLM.VisualModel
 	log.Printf("RenderTeam Model initialized with %s", modelID)
 
-	_ = g.AddLambdaNode("script_coder", subagents.NewScriptCoderNode())
-	_ = g.AddLambdaNode("ppteval_judge", subagents.NewPPTEvalJudgeNode())
+	_ = g.AddLambdaNode("script_coder", NewScriptCoderNode())
+	_ = g.AddLambdaNode("ppteval_judge", NewPPTEvalJudgeNode())
 
 	_ = g.AddEdge(compose.START, "script_coder")
 	_ = g.AddEdge("script_coder", "ppteval_judge")

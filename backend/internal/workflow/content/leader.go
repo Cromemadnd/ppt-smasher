@@ -1,11 +1,10 @@
 package content
 
 import (
-	"context"
-	"github.com/cloudwego/eino/compose"
 	"log"
 	"ppt-stasher-backend/internal/config"
-	"ppt-stasher-backend/internal/workflow/content/subagents"
+
+	"github.com/cloudwego/eino/compose"
 )
 
 func BuildContentTeamGraph() *compose.Graph[TeamContentState, TeamContentState] {
@@ -13,9 +12,9 @@ func BuildContentTeamGraph() *compose.Graph[TeamContentState, TeamContentState] 
 	modelID := config.GlobalConfig.LLM.ContentModel
 	log.Printf("ContentTeam Model initialized with %s", modelID)
 
-	_ = g.AddLambdaNode("outline_director", subagents.NewOutlineDirectorNode())
-	_ = g.AddLambdaNode("content_filler", subagents.NewContentFillerNode())
-	_ = g.AddLambdaNode("content_critic", subagents.NewContentCriticNode())
+	_ = g.AddLambdaNode("outline_director", NewOutlineDirectorNode())
+	_ = g.AddLambdaNode("content_filler", NewContentFillerNode())
+	_ = g.AddLambdaNode("content_critic", NewContentCriticNode())
 
 	_ = g.AddEdge(compose.START, "outline_director")
 	_ = g.AddEdge("outline_director", "content_filler")

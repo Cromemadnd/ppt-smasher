@@ -1,4 +1,4 @@
-package subagents
+package research
 
 import (
 	"context"
@@ -6,13 +6,13 @@ import (
 	"log"
 	"time"
 
-	"github.com/cloudwego/eino/compose"
 	"ppt-stasher-backend/internal/db"
-	"ppt-stasher-backend/internal/workflow/research"
+
+	"github.com/cloudwego/eino/compose"
 )
 
-func NewSearchDocumentNode() compose.InvokableLambda[research.TeamResearchState, research.TeamResearchState] {
-	return compose.InvokableLambda(func(ctx context.Context, s research.TeamResearchState) (research.TeamResearchState, error) {
+func NewSearchDocumentNode() *compose.Lambda {
+	return compose.InvokableLambda(func(ctx context.Context, s TeamResearchState) (TeamResearchState, error) {
 		log.Println("[ResearchTeam] 正在检索文本资料...")
 
 		// 1. 将提供的参考资料存入 LanceDB 向量库 (模拟索引过程)

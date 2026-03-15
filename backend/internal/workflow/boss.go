@@ -2,13 +2,14 @@ package workflow
 
 import (
 	"context"
-	"github.com/cloudwego/eino/compose"
 	"log"
 	"ppt-stasher-backend/internal/config"
 	"ppt-stasher-backend/internal/workflow/content"
 	"ppt-stasher-backend/internal/workflow/render"
 	"ppt-stasher-backend/internal/workflow/research"
 	"ppt-stasher-backend/internal/workflow/template"
+
+	"github.com/cloudwego/eino/compose"
 )
 
 // BuildBossGraph 构建 Boss 作为最高层级的 Graph 编排，
@@ -36,10 +37,6 @@ func BuildBossGraph() (compose.Runnable[WorkflowState, WorkflowState], error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// -------------------------------------------------------------
-	// 将下层Agent编排封装进Boss的执行流中，作为 Tools 供上层大模型调用。
-	// -------------------------------------------------------------
 
 	_ = g.AddLambdaNode("boss_reasoning", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
 		log.Printf("[Boss] 分析用户需求，主题: '%s', 然后决定调度哪些下层 Agent.", s.Theme)
@@ -76,9 +73,12 @@ func BuildBossGraph() (compose.Runnable[WorkflowState, WorkflowState], error) {
 	}))
 
 	_ = g.AddEdge(compose.START, "boss_reasoning")
+	// 模板分析与资料研究可以并行，而内容生成需要前两者的结果
 	_ = g.AddEdge("boss_reasoning", "call_tool_research")
-	_ = g.AddEdge("call_tool_research", "call_tool_template")
+	_ = g.AddEdge("boss_reasoning", "call_tool_template")
+	_ = g.AddEdge("call_tool_research", "call_tool_content")
 	_ = g.AddEdge("call_tool_template", "call_tool_content")
+
 	_ = g.AddEdge("call_tool_content", "call_tool_render")
 	_ = g.AddEdge("call_tool_render", compose.END)
 

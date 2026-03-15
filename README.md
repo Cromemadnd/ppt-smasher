@@ -27,6 +27,8 @@
 
 ## Agents 分工
 
+![Architecture](./docs/architecture.svg)
+
 让我们来详细了解一下这支"专业外包团队"。这套架构深度借鉴了微服务解耦设计的思想，将不同领域的职责完全隔离开来，每个子 Agent 都作为父 Agent 的一个 Tool 被使用。
 
 ### Boss 项目经理
@@ -76,6 +78,8 @@
 
 ### 核心工作流
 
+![Flowchart](./docs/flowchart.svg)
+
 1.  **需求与物料注入 (Input & Initialization)** 你向 Boss 交代本次 PPT 的主题，并“喂”给它两样东西：一批**参考资料**（原始文本/数据）和一份**你中意的参考 PPT**（视觉模板）。
 2.  **双线基建开工 (Parallel Preparation)**
     *   **知识线**：Research Team 吞吐参考资料，联网检索补充，清洗后全部存入向量数据库（VDB），构建项目专属知识底座。
@@ -89,4 +93,4 @@
 
 ## 致谢
 
-本项目的实现思路与 Agent Prompt 极大程度上参考了[PPTAgent](https://github.com/icip-cas/PPTAgent)，非常感谢！
+本项目的实现思路与 Agent Prompt 极大程度上参考了[PPTAgent(DeepPresenter)](https://github.com/icip-cas/PPTAgent)，非常感谢！

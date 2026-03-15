@@ -7,9 +7,6 @@ services:
       - ./backend:/app
     environment:
       - GO_ENV=development
-    # 映射外部端口仅用于直接访问，反向代理通过 nginx 处理
-    # ports:
-    #   - "8080:8080"
     networks:
       - app-network
 
@@ -18,7 +15,6 @@ services:
       context: ./frontend
     networks:
       - app-network
-    # 如果你在本地开发，可以用 volumes 映射 dist，但由于使用了 multi-stage build，这里主要靠 nginx 代理
     depends_on:
       - backend
 

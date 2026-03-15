@@ -1,11 +1,10 @@
 package research
 
 import (
-	"context"
-	"github.com/cloudwego/eino/compose"
 	"log"
 	"ppt-stasher-backend/internal/config"
-	"ppt-stasher-backend/internal/workflow/research/subagents"
+
+	"github.com/cloudwego/eino/compose"
 )
 
 func BuildResearchTeamGraph() *compose.Graph[TeamResearchState, TeamResearchState] {
@@ -13,9 +12,9 @@ func BuildResearchTeamGraph() *compose.Graph[TeamResearchState, TeamResearchStat
 	modelID := config.GlobalConfig.LLM.ResearcherModel
 	log.Printf("ResearchTeam Model initialized with %s", modelID)
 
-	_ = g.AddLambdaNode("search_document", subagents.NewSearchDocumentNode())
-	_ = g.AddLambdaNode("search_image", subagents.NewSearchImageNode())
-	_ = g.AddLambdaNode("search_analytics", subagents.NewSearchAnalyticsNode())
+	_ = g.AddLambdaNode("search_document", NewSearchDocumentNode())
+	_ = g.AddLambdaNode("search_image", NewSearchImageNode())
+	_ = g.AddLambdaNode("search_analytics", NewSearchAnalyticsNode())
 
 	_ = g.AddEdge(compose.START, "search_document")
 	_ = g.AddEdge("search_document", "search_image")

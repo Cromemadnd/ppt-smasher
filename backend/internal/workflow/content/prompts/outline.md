@@ -2,6 +2,7 @@ You are the Outline Director for generating a presentation (PPT) outline.
 Below are the details:
 - **Presentation Theme**: {theme}
 - **VDB Status (Knowledge Source Context Included)**: {knowledge_ready}
+- **Leader Feedback / Previous Issues**: {current_feedback}
 
 Your job is to produce a JSON outlining the sequence of slides for the presentation.
 

@@ -3,11 +3,13 @@ package content
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 
 	"ppt-stasher-backend/internal/config"
+	"ppt-stasher-backend/internal/db"
 
 	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/prompt"
@@ -17,6 +19,12 @@ import (
 
 //go:embed prompts/filler.md
 var fillerPromptTemplate string
+
+type FillerResult struct {
+	Status               string   `json:"status"`
+	NeedsResearchQueries []string `json:"needs_research_queries"`
+	Slides               any      `json:"slides"`
+}
 
 func parseJSONSnippetFiller(text string) string {
 	start := strings.Index(text, "```json")
@@ -57,14 +65,23 @@ func NewContentFillerNode() *compose.Lambda {
 		templatesStr := strings.Join(s.AvailableLayouts, "\n\n")
 
 		krContext := "No Extracted Knowledge Provided here, rely on general domain knowledge."
-		// Note: If VDBStatus is true, typically we'd fetch actual RAG knowledge here.
-		// For now we pass a generic string or hook up to the RAG retrieval tool directly.
+		if s.VDBStatus {
+			// Query LanceDB
+			retrieved, err := db.SearchDocument(ctx, s.Theme, s.Theme+" "+s.Outline, 5)
+			if err != nil {
+				log.Printf("[ContentTeam:Filler] Failed to retrieve documents: %v", err)
+			} else {
+				krContext = strings.Join(retrieved, "\n\n")
+				s.VDBContext = krContext // Store for Critic to use
+			}
+		}
 
 		messages, err := chatTpl.Format(ctx, map[string]any{
-			"theme":   s.Theme,
-			"outline": s.Outline,
-			"context": krContext,
-			"schemas": templatesStr,
+			"theme":            s.Theme,
+			"outline":          s.Outline,
+			"context":          krContext,
+			"schemas":          templatesStr,
+			"current_feedback": s.CurrentFeedback,
 		})
 		if err != nil {
 			return s, fmt.Errorf("format prompt failed: %w", err)
@@ -80,9 +97,20 @@ func NewContentFillerNode() *compose.Lambda {
 			fillerJSON = resp.Content
 		}
 
-		// Save the finalized contents into Drafts.
-		s.FilledContentDraft = append(s.FilledContentDraft, fillerJSON)
-		log.Printf("[ContentTeam:Filler] 生成文案并填充完成: 产生 %d 个草案版本", len(s.FilledContentDraft))
+		var res FillerResult
+		err = json.Unmarshal([]byte(fillerJSON), &res)
+		if err != nil {
+			log.Printf("[ContentTeam:Filler] Default to Success due to json parse err: %v", err)
+			s.FillerResultState = "Success"
+			s.FilledContentDraft = append(s.FilledContentDraft, fillerJSON)
+		} else {
+			s.FillerResultState = res.Status
+			s.ResearchQueries = res.NeedsResearchQueries
+			b, _ := json.Marshal(res.Slides)
+			s.FilledContentDraft = append(s.FilledContentDraft, string(b))
+		}
+
+		log.Printf("[ContentTeam:Filler] 生成文案并填充完成: 状态=%s, 草案数=%d", s.FillerResultState, len(s.FilledContentDraft))
 
 		return s, nil
 	})

@@ -181,7 +181,7 @@ func NewIndexVDBNode() *compose.Lambda {
 				chunkID := uuid.New().String()
 
 				// 并行执行向量化写库
-				err := db.AddDocumentChunk(ctx, chunkID, text)
+				err := db.AddDocumentChunk(ctx, s.Theme, chunkID, text)
 				if err != nil {
 					log.Printf("[ResearchTeam:Index] 写入 db 失败 (chunk %s): %v", chunkID[:6], err)
 				}

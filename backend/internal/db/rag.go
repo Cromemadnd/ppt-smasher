@@ -91,7 +91,7 @@ func getEmbedding(ctx context.Context, text string) ([]float32, error) {
 }
 
 // AddDocumentChunk 插入文档片段到 LanceDB
-func AddDocumentChunk(ctx context.Context, id string, text string) error {
+func AddDocumentChunk(ctx context.Context, theme string, id string, text string) error {
 	if LanceTable == nil {
 		return fmt.Errorf("LanceTable not initialized")
 	}
@@ -108,13 +108,19 @@ func AddDocumentChunk(ctx context.Context, id string, text string) error {
 	idArray := idBuilder.NewArray()
 	defer idArray.Release()
 
-	// 2. Text builder
+	// 2. Theme builder
+	themeBuilder := array.NewStringBuilder(pool)
+	themeBuilder.AppendValues([]string{theme}, nil)
+	themeArray := themeBuilder.NewArray()
+	defer themeArray.Release()
+
+	// 3. Text builder
 	textBuilder := array.NewStringBuilder(pool)
 	textBuilder.AppendValues([]string{text}, nil)
 	textArray := textBuilder.NewArray()
 	defer textArray.Release()
 
-	// 3. Vector builder
+	// 4. Vector builder
 	vectorFloat32Builder := array.NewFloat32Builder(pool)
 	vectorFloat32Builder.AppendValues(vectorData, nil)
 	vectorFloat32Array := vectorFloat32Builder.NewArray()
@@ -133,18 +139,19 @@ func AddDocumentChunk(ctx context.Context, id string, text string) error {
 
 	fields := []arrow.Field{
 		{Name: "id", Type: arrow.BinaryTypes.String, Nullable: false},
+		{Name: "theme", Type: arrow.BinaryTypes.String, Nullable: false},
 		{Name: "text", Type: arrow.BinaryTypes.String, Nullable: false},
 		{Name: "vector", Type: vectorListType, Nullable: false},
 	}
 	schema := arrow.NewSchema(fields, nil)
-	record := array.NewRecord(schema, []arrow.Array{idArray, textArray, vectorArray}, 1)
+	record := array.NewRecord(schema, []arrow.Array{idArray, themeArray, textArray, vectorArray}, 1)
 	defer record.Release()
 
 	return LanceTable.AddRecords(ctx, []arrow.Record{record}, nil)
 }
 
 // SearchDocument 检索相关的文档片段
-func SearchDocument(ctx context.Context, query string, topK int) ([]string, error) {
+func SearchDocument(ctx context.Context, theme string, query string, topK int) ([]string, error) {
 	if LanceTable == nil {
 		return nil, fmt.Errorf("LanceTable not initialized")
 	}
@@ -154,7 +161,10 @@ func SearchDocument(ctx context.Context, query string, topK int) ([]string, erro
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
 
-	results, err := LanceTable.VectorSearch(ctx, "vector", queryVector, topK)
+	results, err := LanceTable.Search(queryVector).
+		Where(fmt.Sprintf("theme = '%s'", theme)). // 过滤当前幻灯片主题的内容
+		Limit(topK).
+		Execute(ctx)
 	if err != nil {
 		return nil, err
 	}

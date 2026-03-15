@@ -62,9 +62,10 @@ func NewOutlineDirectorNode() *compose.Lambda {
 		}
 
 		messages, err := chatTpl.Format(ctx, map[string]any{
-			"theme":           s.Theme,
-			"knowledge_ready": kr,
-			"schemas":         templatesStr,
+			"theme":            s.Theme,
+			"knowledge_ready":  kr,
+			"schemas":          templatesStr,
+			"current_feedback": s.CurrentFeedback,
 		})
 		if err != nil {
 			return s, fmt.Errorf("format prompt failed: %w", err)

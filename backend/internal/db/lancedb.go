@@ -31,6 +31,7 @@ func initRAGTable() {
 	// 简单的 schema：id (string), text (string), vector (float32[384])
 	fields := []arrow.Field{
 		{Name: "id", Type: arrow.BinaryTypes.String, Nullable: false},
+		{Name: "theme", Type: arrow.BinaryTypes.String, Nullable: false},
 		{Name: "text", Type: arrow.BinaryTypes.String, Nullable: false},
 		{Name: "vector", Type: arrow.FixedSizeListOf(384, arrow.PrimitiveTypes.Float32), Nullable: false},
 	}

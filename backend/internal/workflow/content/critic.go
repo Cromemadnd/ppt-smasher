@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -17,6 +18,12 @@ import (
 
 //go:embed prompts/critic.md
 var criticPromptTemplate string
+
+type CriticResult struct {
+	Decision       string `json:"decision"`
+	Feedback       string `json:"feedback"`
+	CorrectedDraft any    `json:"corrected_draft"`
+}
 
 func parseJSONSnippetCritic(text string) string {
 	start := strings.Index(text, "```json")
@@ -62,6 +69,7 @@ func NewContentCriticNode() *compose.Lambda {
 		chatTpl := prompt.FromMessages(schema.FString, schema.UserMessage(criticPromptTemplate))
 		messages, err := chatTpl.Format(ctx, map[string]any{
 			"theme":   s.Theme,
+			"context": s.VDBContext,
 			"outline": s.Outline,
 			"draft":   draftToReview,
 		})
@@ -79,9 +87,21 @@ func NewContentCriticNode() *compose.Lambda {
 			finalJSON = resp.Content
 		}
 
-		// Replace the last draft with the final revised version.
-		s.FilledContentDraft[len(s.FilledContentDraft)-1] = finalJSON
-		log.Printf("[ContentTeam:Critic] 内容审查通过，最终生成版本已确定")
+		var res CriticResult
+		err = json.Unmarshal([]byte(finalJSON), &res)
+		if err != nil {
+			log.Printf("[ContentTeam:Critic] Default to Pass due to json parse err: %v", err)
+			s.CriticDecision = "Pass"
+		} else {
+			s.CriticDecision = res.Decision
+			s.CriticFeedback = res.Feedback
+			s.CurrentFeedback = res.Feedback // Pass it along for next iterations
+			b, _ := json.Marshal(res.CorrectedDraft)
+			// Replace the last draft with the final revised version.
+			s.FilledContentDraft[len(s.FilledContentDraft)-1] = string(b)
+		}
+
+		log.Printf("[ContentTeam:Critic] 内容审查结束: 决议=%s", s.CriticDecision)
 
 		return s, nil
 	})

@@ -3,10 +3,10 @@ package ws
 import (
 	"encoding/json"
 	"log"
-	"ppt-stasher-backend/internal/agent"
+	"ppt-stasher-backend/internal/workflow"
 )
 
-// HandleClientMessage 处理来自客户端的 WebSocket 消息帧
+// HandleClientMessage
 func HandleClientMessage(c *Client, msg []byte) {
 	var m Message
 	if err := json.Unmarshal(msg, &m); err != nil {
@@ -25,7 +25,7 @@ func HandleClientMessage(c *Client, msg []byte) {
 		}
 
 		// 异步触发 Eino 工作流，直接向当前的 Client 推流
-		go agent.RunWorkflow(c, p.Theme)
+		go workflow.RunWorkflow(c, p.Theme)
 
 	case MsgTypeUploadFile:
 		// 1. 解析 base64Data

@@ -8,7 +8,12 @@ import (
 )
 
 type Config struct {
-	LLM LLMConfig `mapstructure:"llm"`
+	LLM    LLMConfig    `mapstructure:"llm"`
+	Search SearchConfig `mapstructure:"search"`
+}
+
+type SearchConfig struct {
+	TavilyAPIKey string `mapstructure:"tavily_api_key"`
 }
 
 type LLMConfig struct {

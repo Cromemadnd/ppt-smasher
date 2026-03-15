@@ -59,7 +59,11 @@ func BuildBossGraph() (compose.Runnable[WorkflowState, WorkflowState], error) {
 
 	_ = g.AddLambdaNode("call_tool_content", compose.InvokableLambda(func(ctx context.Context, s WorkflowState) (WorkflowState, error) {
 		log.Println("[Boss -> Tool Call] 召唤 Content Team 开始共创文案大纲与版式分配...")
-		cs, _ := contentGraph.Invoke(ctx, content.TeamContentState{VDBStatus: s.KnowledgeReady, AvailableLayouts: s.LayoutSchemas})
+		cs, _ := contentGraph.Invoke(ctx, content.TeamContentState{
+			Theme:            s.Theme,
+			VDBStatus:        s.KnowledgeReady,
+			AvailableLayouts: s.LayoutSchemas,
+		})
 		s.ContentDrafts = cs.FilledContentDraft
 		s.Outline = cs.Outline
 		return s, nil

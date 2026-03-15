@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"log"
 
+	"ppt-stasher-backend/internal/config"
+
 	"github.com/apache/arrow/go/v17/arrow"
 	"github.com/apache/arrow/go/v17/arrow/array"
 	"github.com/apache/arrow/go/v17/arrow/memory"
 	"github.com/cloudwego/eino-ext/components/embedding/ark"
+	"github.com/cloudwego/eino-ext/components/embedding/openai"
 	"github.com/cloudwego/eino/components/embedding"
-	"ppt-stasher-backend/internal/config"
 )
 
 var embedder embedding.Embedder
@@ -78,7 +80,7 @@ func getEmbedding(ctx context.Context, text string) ([]float32, error) {
 	if len(vectors) == 0 {
 		return nil, fmt.Errorf("no vector returned")
 	}
-	
+
 	// Convert []float64 to []float32 for LanceDB
 	v64 := vectors[0]
 	v32 := make([]float32, len(v64))
@@ -93,7 +95,7 @@ func AddDocumentChunk(ctx context.Context, id string, text string) error {
 	if LanceTable == nil {
 		return fmt.Errorf("LanceTable not initialized")
 	}
-	
+
 	vectorData, err := getEmbedding(ctx, text)
 	if err != nil {
 		return fmt.Errorf("failed to embed document chunk: %w", err)
@@ -151,7 +153,7 @@ func SearchDocument(ctx context.Context, query string, topK int) ([]string, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to embed query: %w", err)
 	}
-	
+
 	results, err := LanceTable.VectorSearch(ctx, "vector", queryVector, topK)
 	if err != nil {
 		return nil, err

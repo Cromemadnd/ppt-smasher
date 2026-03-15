@@ -39,7 +39,7 @@ func initRAGTable() {
 
 	tableName := "document_chunks"
 	tableNames, _ := LanceDB.TableNames(ctx, nil)
-	
+
 	// 如果不存在，则创建表
 	exists := false
 	for _, name := range tableNames {
@@ -62,6 +62,6 @@ func initRAGTable() {
 			log.Fatalf("failed to create lancedb table: %v", err)
 		}
 	}
-	
+
 	LanceTable = table
 }

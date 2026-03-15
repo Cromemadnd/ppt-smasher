@@ -3,9 +3,9 @@ package main
 import (
 	"log"
 	"net/http"
-	"ppt-stasher-backend/internal/workflow"
 	"ppt-stasher-backend/internal/config"
 	"ppt-stasher-backend/internal/db"
+	"ppt-stasher-backend/internal/workflow"
 	"ppt-stasher-backend/internal/ws"
 )
 
@@ -13,7 +13,6 @@ func main() {
 	// 0. 初始化配置
 	config.InitConfig()
 
-	
 	// 初始化 LanceDB 向量库
 	db.InitLanceDB()
 

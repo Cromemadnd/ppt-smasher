@@ -9,6 +9,7 @@ type Placeholder struct {
 
 type SlideLayoutSchema struct {
 	LayoutName   string        `json:"layout_name"`
+	Category     string        `json:"category,omitempty"` // "structural" or "content"
 	Placeholders []Placeholder `json:"placeholders"`
 }
 

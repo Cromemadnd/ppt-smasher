@@ -115,15 +115,13 @@ func BuildResearchTeamGraph() *compose.Graph[TeamResearchState, TeamResearchStat
 	log.Printf("ResearchTeam Model initialized with %s", modelID)
 
 	_ = g.AddLambdaNode("research_leader", NewResearchLeaderNode())
-	_ = g.AddLambdaNode("search_document", NewSearchDocumentNode())
-	_ = g.AddLambdaNode("search_image", NewSearchImageNode())
-	_ = g.AddLambdaNode("search_analytics", NewSearchAnalyticsNode())
+	_ = g.AddLambdaNode("parallel_search", NewParallelTasksNode())
+	_ = g.AddLambdaNode("index_vdb", NewIndexVDBNode())
 
 	_ = g.AddEdge(compose.START, "research_leader")
-	_ = g.AddEdge("research_leader", "search_document")
-	_ = g.AddEdge("search_document", "search_image")
-	_ = g.AddEdge("search_image", "search_analytics")
-	_ = g.AddEdge("search_analytics", compose.END)
+	_ = g.AddEdge("research_leader", "parallel_search")
+	_ = g.AddEdge("parallel_search", "index_vdb")
+	_ = g.AddEdge("index_vdb", compose.END)
 
 	return g
 }

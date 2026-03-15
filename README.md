@@ -61,10 +61,10 @@
 
 - **定位**：负责逻辑与文案，将零散知识转化为结构化的表达。
 - **职责**：通过从 VDB 检索（Retrieve）相关素材，完成从框架到逐字稿的创作闭环。
-- **自省机制（Reflection）**：
-    - `Outline Director`：起草符合逻辑流的 PPT 大纲，**并为每一页精准指定要套用的参考模板幻灯片**。
-    - `Content Filler`：向大纲指定的各个模板骨架中，填充从 VDB 提取的文案和图片等“血肉”。
-    - `Content Critic`：内部的“毒舌审查员”。负责交叉比对填充内容与原始 VDB 事实，一旦发现逻辑断层或 AI 幻觉，立即打回重写，或向 Boss 申请“需要更多资料（Further search required）”。
+- **团队成员**：
+    - **Outline Director**：起草符合逻辑流的 PPT 大纲，**并为每一页精准指定要套用的参考模板幻灯片**。
+    - **Content Filler**：向大纲指定的各个模板骨架中，填充从 VDB 提取的文案和图片等“血肉”。
+    - **Content Critic**：负责交叉比对填充内容与原始 VDB 事实，一旦发现逻辑断层或 AI 幻觉，立即打回重写，或向 Boss 申请“需要更多资料（Further search required）”。
 
 ### Render Team 视觉设计团队
 

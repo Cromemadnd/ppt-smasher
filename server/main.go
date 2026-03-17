@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// 0. 初始化配置
-	config.InitConfig()
+	config.InitConfig([]string{"."})
 
 	// 初始化 Postgres + pgvector 向量库
 	db.InitVectorDB(context.Background())

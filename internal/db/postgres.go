@@ -18,7 +18,7 @@ type PostgresVectorDB struct {
 	ret *retriever.Retriever
 }
 
-func NewPostgresVectorDB(ctx context.Context, cfg *config.PostgresConfig, embedder embedding.Embedder, tableName string, dimension int) *PostgresVectorDB {
+func NewPostgresVectorDB(ctx context.Context, cfg *config.VDBConfig, embedder embedding.Embedder, tableName string, dimension int) *PostgresVectorDB {
 	// 初始化 Indexer
 	idx, err := indexer.NewIndexer(ctx, &indexer.IndexerConfig{
 		Host:       cfg.Host,
@@ -89,4 +89,28 @@ func (v *PostgresVectorDB) Retrieve(ctx context.Context, query string, opts ...e
 
 func (v *PostgresVectorDB) Close(ctx context.Context) error {
 	return v.idx.Close()
+}
+
+func (v *PostgresVectorDB) AddDocumentChunk(ctx context.Context, chunks []string) error {
+	docs := make([]*schema.Document, len(chunks))
+	for i, chunk := range chunks {
+		docs[i] = &schema.Document{
+			Content: chunk,
+		}
+	}
+	_, err := v.Index(ctx, docs)
+	return err
+}
+
+func (v *PostgresVectorDB) SearchDocument(ctx context.Context, query string) ([]string, error) {
+	docs, err := v.Retrieve(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]string, len(docs))
+	for i, doc := range docs {
+		results[i] = doc.Content
+	}
+	return results, nil
 }

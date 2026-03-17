@@ -11,3 +11,12 @@ llm:
   embedding_provider: "ark"                   # 火山引擎方舟
   embedding_model: "ep-2025xxxx-xxxxx"       # 替换为您的 Endpoint ID
   embedding_dim: 1024                         # 根据模型调整维度，例如豆包模型通常为 1024
+
+vdb:
+  type: "postgres" # "postgres" or "milvus"
+  host: "127.0.0.1"
+  port: 5432
+  user: "pptsmasher"
+  password: "your-pptsmasher-db-pass"
+  dbname: "ppt_smasher"
+  sslmode: "disable"

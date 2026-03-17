@@ -10,12 +10,21 @@ import (
 	"github.com/cloudwego/eino-ext/components/embedding/ark"
 	"github.com/cloudwego/eino-ext/components/embedding/openai"
 	"github.com/cloudwego/eino/components/embedding"
+	einoindexer "github.com/cloudwego/eino/components/indexer"
+	einoretriever "github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/schema"
 )
 
+type VectorStore interface {
+	Index(ctx context.Context, docs []*schema.Document, opts ...einoindexer.Option) ([]string, error)
+	Retrieve(ctx context.Context, query string, opts ...einoretriever.Option) ([]*schema.Document, error)
+	AddDocumentChunk(ctx context.Context, chunks []string) error
+	SearchDocument(ctx context.Context, query string) ([]string, error)
+}
+
 var (
 	embedder embedding.Embedder
-	vectorDB *PostgresVectorDB
+	vectorDB VectorStore
 )
 
 func InitVectorDB(ctx context.Context) {
@@ -30,8 +39,17 @@ func InitVectorDB(ctx context.Context) {
 		dim = 384
 	}
 
-	vectorDB = NewPostgresVectorDB(ctx, &config.GlobalConfig.Postgres, emb, "document_chunks", dim)
-	log.Println("Postgres VectorDB initialized successfully.")
+	vdbCfg := &config.GlobalConfig.VDB
+	switch vdbCfg.Type {
+	case "milvus":
+		vectorDB = NewMilvusVectorDB(ctx, vdbCfg, emb, "document_chunks", dim)
+		log.Println("Milvus VectorDB initialized successfully.")
+	case "postgres", "":
+		vectorDB = NewPostgresVectorDB(ctx, vdbCfg, emb, "document_chunks", dim)
+		log.Println("Postgres VectorDB initialized successfully.")
+	default:
+		log.Fatalf("unsupported vdb type: %s", vdbCfg.Type)
+	}
 }
 
 func getEmbedder(ctx context.Context) embedding.Embedder {
@@ -67,9 +85,11 @@ func getEmbedder(ctx context.Context) embedding.Embedder {
 		}
 		embedder = emb
 	case "ark":
+		apiType := ark.APITypeMultiModal // 目前默认使用多模态接口，未来可以根据模型类型调整
 		emb, err := ark.NewEmbedder(ctx, &ark.EmbeddingConfig{
-			APIKey: conf.APIKey,
-			Model:  model,
+			APIKey:  conf.APIKey,
+			Model:   model,
+			APIType: &apiType,
 		})
 		if err != nil {
 			log.Printf("failed to init ark embedder: %v", err)

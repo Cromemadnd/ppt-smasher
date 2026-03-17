@@ -7,19 +7,20 @@ import (
 	"github.com/spf13/viper"
 )
 
-type PostgresConfig struct {
+type VDBConfig struct {
+	Type     string `yaml:"type"` // "postgres" or "milvus"
 	Host     string `yaml:"host"`
 	Port     int    `yaml:"port"`
 	User     string `yaml:"user"`
 	Password string `yaml:"password"`
-	DBName   string `yaml:"dbname"`
-	SSLMode  string `yaml:"sslmode"`
+	DBName   string `yaml:"dbname"`  // For Postgres
+	SSLMode  string `yaml:"sslmode"` // For Postgres
 }
 
 type Config struct {
-	LLM      LLMConfig      `mapstructure:"llm"`
-	Search   SearchConfig   `mapstructure:"search"`
-	Postgres PostgresConfig `mapstructure:"postgres"`
+	LLM    LLMConfig    `mapstructure:"llm"`
+	Search SearchConfig `mapstructure:"search"`
+	VDB    VDBConfig    `mapstructure:"vdb"`
 }
 
 type SearchConfig struct {
@@ -40,11 +41,15 @@ type LLMConfig struct {
 
 var GlobalConfig *Config
 
-func InitConfig() {
+func InitConfig(configPath []string) {
+	// 加载 .env 文件（如果存在）
+	// _ = godotenv.Load()
+
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")        // 本地当前目录
-	viper.AddConfigPath("./config") // 或 config 目录
+	for _, path := range configPath {
+		viper.AddConfigPath(path)
+	}
 
 	// 环境变量支持
 	viper.AutomaticEnv()

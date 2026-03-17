@@ -60,12 +60,14 @@ func NewContentFillerNode() *compose.Lambda {
 		templatesStr := strings.Join(s.AvailableLayouts, "\n\n")
 
 		krContext := "No Extracted Knowledge Provided here, rely on general domain knowledge."
-		if s.VDBStatus {
-			// Query LanceDB
+		if s.VDBContext != "" {
+			krContext = s.VDBContext
+		} else if s.VDBStatus {
+			// Query LanceDB (Fallback if RAG node didn't run or context is empty)
 			retrieved, err := db.SearchDocument(ctx, s.Theme, s.Theme+" "+s.Outline, 5)
 			if err != nil {
 				log.Printf("[ContentTeam:Filler] Failed to retrieve documents: %v", err)
-			} else {
+			} else if len(retrieved) > 0 {
 				krContext = strings.Join(retrieved, "\n\n")
 				s.VDBContext = krContext // Store for Critic to use
 			}

@@ -16,6 +16,7 @@ func BuildContentTeamGraph() *compose.Graph[TeamContentState, TeamContentState] 
 	log.Printf("ContentTeam Model initialized with %s", modelID)
 
 	_ = g.AddLambdaNode("outline_director", NewOutlineDirectorNode())
+	_ = g.AddLambdaNode("rag_retriever", NewRAGNode())
 	_ = g.AddLambdaNode("content_filler", NewContentFillerNode())
 	_ = g.AddLambdaNode("content_critic", NewContentCriticNode())
 
@@ -69,7 +70,8 @@ func BuildContentTeamGraph() *compose.Graph[TeamContentState, TeamContentState] 
 	}))
 
 	_ = g.AddEdge(compose.START, "outline_director")
-	_ = g.AddEdge("outline_director", "content_filler")
+	_ = g.AddEdge("outline_director", "rag_retriever")
+	_ = g.AddEdge("rag_retriever", "content_filler")
 
 	_ = g.AddBranch("content_filler", compose.NewGraphBranch(func(_ context.Context, s TeamContentState) (string, error) {
 		if s.FillerResultState == "Needs_Research" {

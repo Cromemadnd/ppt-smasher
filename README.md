@@ -107,7 +107,7 @@
 - [✔] 整体架构设计
 - [✔] 前端 UI Demo
 - [✔] 基础 RAG 搭建
-- [✔] Template Team 的 MVP
+- [  ] Template Team 的 MVP (返工迭代中)
 - [✔] Researcher 的 MVP
 - [✔] Content Team 的 MVP
 - [  ] Render Team 的 MVP

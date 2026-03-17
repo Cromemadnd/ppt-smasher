@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"time"
 
 	"ppt-smasher/internal/config"
@@ -26,13 +29,9 @@ type TavilySearchResult struct {
 	Score   float64 `json:"score"`
 }
 
-type TavilyImageResult struct {
-	URL string `json:"url"`
-}
-
 type TavilySearchResponse struct {
 	Results []TavilySearchResult `json:"results"`
-	Images  []TavilyImageResult  `json:"images,omitempty"`
+	Images  []string             `json:"images,omitempty"`
 }
 
 func SearchTavily(ctx context.Context, query string, includeImages bool) (*TavilySearchResponse, error) {
@@ -77,4 +76,41 @@ func SearchTavily(ctx context.Context, query string, includeImages bool) (*Tavil
 	}
 
 	return &searchResp, nil
+}
+
+// DownloadImage 从 URL 下载图片到本地路径
+func DownloadImage(ctx context.Context, url string, savePath string) error {
+	// 确保目录存在
+	dir := filepath.Dir(savePath)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			return fmt.Errorf("failed to create directory: %v", err)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download image: status %d", resp.StatusCode)
+	}
+
+	out, err := os.Create(savePath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	return err
 }

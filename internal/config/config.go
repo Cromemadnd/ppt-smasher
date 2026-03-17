@@ -17,14 +17,26 @@ type VDBConfig struct {
 	SSLMode  string `yaml:"sslmode"` // For Postgres
 }
 
+type SearchConfig struct {
+	TavilyAPIKey string `mapstructure:"tavily_api_key"`
+}
+
+type MinerUConfig struct {
+	APIKey  string `mapstructure:"api_key"`
+	BaseURL string `mapstructure:"base_url"`
+}
+
 type Config struct {
 	LLM    LLMConfig    `mapstructure:"llm"`
 	Search SearchConfig `mapstructure:"search"`
 	VDB    VDBConfig    `mapstructure:"vdb"`
+	MinerU MinerUConfig `mapstructure:"mineru"`
+	Paths  PathConfig   `mapstructure:"paths"`
 }
 
-type SearchConfig struct {
-	TavilyAPIKey string `mapstructure:"tavily_api_key"`
+type PathConfig struct {
+	TempDir      string `mapstructure:"temp_dir"`
+	MinerUResult string `mapstructure:"mineru_result"`
 }
 
 type LLMConfig struct {

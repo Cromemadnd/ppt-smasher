@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
 	"ppt-smasher/internal/config"
+	"ppt-smasher/internal/db"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -36,8 +39,8 @@ func TestSearchTavily_Success(t *testing.T) {
 					Score:   0.9,
 				},
 			},
-			Images: []TavilyImageResult{
-				{URL: "https://example.com/image.png"},
+			Images: []string{
+				"https://example.com/image.png",
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -103,5 +106,79 @@ func TestParseJSONSnippet(t *testing.T) {
 			result := parseJSONSnippet(tt.input)
 			assert.Equal(t, tt.expected, result)
 		})
+	}
+}
+
+func TestMinerU_RealFile(t *testing.T) {
+	// 确保配置文件和测试文件存在
+	configPath := "../../../config.yaml"
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		t.Skip("config.yaml not found, skipping TestMinerU_RealFile")
+	}
+
+	testFilePath := "../../../docs/LeetCode 101 - A Grinding Guide.pdf"
+	if _, err := os.Stat(testFilePath); os.IsNotExist(err) {
+		t.Skipf("Test file not found: %s, skipping", testFilePath)
+	}
+
+	// Initialize config
+	config.InitConfig([]string{"../../../"})
+	if config.GlobalConfig.MinerU.APIKey == "" || config.GlobalConfig.MinerU.APIKey == "..." {
+		t.Skip("MinerU API Key not configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+
+	// 初始化数据库，用于记录解析结果
+	db.InitVectorDB(ctx)
+
+	t.Logf("Starting MinerU analysis for: %s", testFilePath)
+
+	// markdown, images, err := ParseWithMinerU(ctx, testFilePath)
+	// assert.NoError(t, err)
+}
+
+func TestMinerU_PureParse(t *testing.T) {
+	// 确保配置文件和测试文件存在
+	configPath := "../../../config.yaml"
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		t.Skip("config.yaml not found, skipping TestMinerU_PureParse")
+	}
+
+	testFilePath := "../../../docs/LeetCode 101 - A Grinding Guide.pdf"
+	if _, err := os.Stat(testFilePath); os.IsNotExist(err) {
+		t.Skipf("Test file not found: %s, skipping", testFilePath)
+	}
+
+	// 初始化配置（不初始化向量数据库）
+	config.InitConfig([]string{"../../../"})
+	if config.GlobalConfig.MinerU.APIKey == "" || config.GlobalConfig.MinerU.APIKey == "..." {
+		t.Skip("MinerU API Key not configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	t.Logf(">>> 开启纯解析测试（无数据库、无 Embedding）: %s", testFilePath)
+
+	markdown, imgURLs, err := ParseWithMinerU(ctx, testFilePath)
+	if err != nil {
+		t.Fatalf("MinerU 解析失败: %v", err)
+	}
+
+	assert.NotEmpty(t, markdown)
+	t.Logf(">>> 解析成功！Markdown 长度: %d 字符", len(markdown))
+	t.Logf(">>> 提取到图片数量: %d", len(imgURLs))
+
+	// 打印 Markdown 前 100 字符展示效果
+	previewLen := 100
+	if len(markdown) < previewLen {
+		previewLen = len(markdown)
+	}
+	t.Logf(">>> 内容预览: %s...", markdown[:previewLen])
+
+	if len(imgURLs) > 0 {
+		t.Logf(">>> 样例图片 URL: %s", imgURLs[0])
 	}
 }

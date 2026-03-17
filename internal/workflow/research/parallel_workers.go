@@ -2,8 +2,12 @@ package research
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"path/filepath"
+	"ppt-smasher/internal/config"
 	"ppt-smasher/internal/db"
 	"sync"
 
@@ -33,8 +37,36 @@ func NewParallelTasksNode() *compose.Lambda {
 		go func() {
 			defer wg.Done()
 			imgs := searchImages(ctx, s.ImageQueries)
-			
-			// 新增：从向量库检索图片描述
+
+			// 下载并存入向量库
+			for _, imgURL := range imgs {
+				// 为图片生成唯一 ID 和文件名
+				hash := md5.Sum([]byte(imgURL))
+				imgID := hex.EncodeToString(hash[:])
+
+				tempDir := config.GlobalConfig.Paths.TempDir
+				if tempDir == "" {
+					tempDir = "temp"
+				}
+				imgDir := filepath.Join(tempDir, "images")
+				savePath := filepath.Join(imgDir, imgID+".png")
+
+				log.Printf("[ResearchTeam:ParallelTasks] 下载并存入图片: %s", imgURL)
+				err := DownloadImage(ctx, imgURL, savePath)
+				if err != nil {
+					log.Printf("[ResearchTeam:ParallelTasks] 图片下载失败 %s: %v", imgURL, err)
+					continue
+				}
+
+				// 存入向量库 (这里暂时使用 URL 作为 base64 的占位符，或者如果 AddImageChunk 只是为了路径)
+				// 实际 AddImageChunk 需要 base64 来生成向量，这里简化处理，先下载后由 AddImageChunk 处理
+				err = db.AddImageChunk(ctx, s.Theme, imgID, imgURL, savePath)
+				if err != nil {
+					log.Printf("[ResearchTeam:ParallelTasks] 图片入库失败 %s: %v", imgURL, err)
+				}
+			}
+
+			// 新增：从向量库检索相关图片描述
 			for _, q := range s.ImageQueries {
 				vdbImgs, err := db.SearchImage(ctx, s.Theme, q, 3)
 				if err == nil {
@@ -124,7 +156,7 @@ func searchImages(ctx context.Context, queries []string) []string {
 				return
 			}
 			for _, img := range res.Images {
-				ch <- img.URL
+				ch <- img
 			}
 		}(q)
 	}
@@ -168,7 +200,7 @@ func searchAnalytics(ctx context.Context, queries []string) []string {
 
 func NewIndexVDBNode() *compose.Lambda {
 	return compose.InvokableLambda(func(ctx context.Context, s TeamResearchState) (TeamResearchState, error) {
-		log.Printf("[ResearchTeam:Index] 开始数据清洗并存入 VDB (LanceDB)...")
+		log.Printf("[ResearchTeam:Index] 开始数据清洗并存入 VDB...")
 
 		// 收集所有文本数据，这里演示将 Documents 和 Analytics 全量分块
 		allTexts := append(s.Documents, s.Analytics...)

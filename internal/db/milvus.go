@@ -111,6 +111,12 @@ func NewMilvusVectorDB(ctx context.Context, cfg *config.VDBConfig, embedder embe
 					DataType:    entity.FieldTypeJSON,
 					Description: "metadata",
 				},
+				{
+					Name:        "type",
+					DataType:    entity.FieldTypeVarChar,
+					TypeParams:  map[string]string{"max_length": "32"},
+					Description: "content type: text or image",
+				},
 			},
 		}
 		err = c.CreateCollection(ctx, schema, entity.DefaultShardNumber)
@@ -125,14 +131,32 @@ func NewMilvusVectorDB(ctx context.Context, cfg *config.VDBConfig, embedder embe
 		}
 		err = c.CreateIndex(ctx, collectionName, "vector", idx, false)
 		if err != nil {
-			log.Fatalf("failed to create index: %v", err)
+			log.Printf("warning: failed to create index: %v", err)
+		}
+	} else {
+		// 检查 type 字段是否存在，如果不存在则删除重建（开发阶段简化处理）
+		coll, err := c.DescribeCollection(ctx, collectionName)
+		if err == nil {
+			hasType := false
+			for _, f := range coll.Schema.Fields {
+				if f.Name == "type" {
+					hasType = true
+					break
+				}
+			}
+			if !hasType {
+				log.Printf("collection %s schema is old, dropping and recreating...", collectionName)
+				c.DropCollection(ctx, collectionName)
+				// 重新连接以防状态不对
+				return NewMilvusVectorDB(ctx, cfg, embedder, collectionName, dimension)
+			}
 		}
 	}
 
 	// 加载 collection
 	err = c.LoadCollection(ctx, collectionName, false)
 	if err != nil {
-		log.Fatalf("failed to load collection: %v", err)
+		log.Printf("warning: failed to load collection: %v", err)
 	}
 
 	return mvdb
@@ -163,16 +187,19 @@ func (m *MilvusVectorDB) Index(ctx context.Context, docs []*schema.Document, opt
 			v32[j] = float32(v)
 		}
 		vectorData = append(vectorData, v32)
-		// 简单处理 metadata 为 JSON，Milvus 支持 JSON 类型
-		// 这里暂不深入实现复杂的 metadata 映射
 		metadataData = append(metadataData, []byte("{}"))
 	}
 
 	contentCol := entity.NewColumnVarChar("content", contentData)
 	vectorCol := entity.NewColumnFloatVector("vector", m.dimension, vectorData)
 	metadataCol := entity.NewColumnJSONBytes("metadata", metadataData)
+	typeData := make([]string, len(docs))
+	for i := range docs {
+		typeData[i] = "text"
+	}
+	typeCol := entity.NewColumnVarChar("type", typeData)
 
-	_, err = m.client.Insert(ctx, m.collection, "", contentCol, vectorCol, metadataCol)
+	_, err = m.client.Insert(ctx, m.collection, "", contentCol, vectorCol, metadataCol, typeCol)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert data into milvus: %v", err)
 	}
@@ -242,6 +269,65 @@ func (m *MilvusVectorDB) SearchDocument(ctx context.Context, query string) ([]st
 	results := make([]string, len(docs))
 	for i, doc := range docs {
 		results[i] = doc.Content
+	}
+	return results, nil
+}
+
+func (m *MilvusVectorDB) AddImageChunk(ctx context.Context, theme string, id string, base64Data string, filePath string) error {
+	// 调用多模态 embedding (注意：这里仍然需要 base64Data 来生成向量，但存储的是 filePath)
+	vectors, err := m.embedder.EmbedStrings(ctx, []string{base64Data})
+	if err != nil {
+		return fmt.Errorf("failed to embed image: %v", err)
+	}
+
+	v64 := vectors[0]
+	v32 := make([]float32, len(v64))
+	for i, v := range v64 {
+		v32[i] = float32(v)
+	}
+
+	// 存入内容改为相对路径，例如 images/xxx.png
+	contentCol := entity.NewColumnVarChar("content", []string{filePath})
+	vectorCol := entity.NewColumnFloatVector("vector", m.dimension, [][]float32{v32})
+	metadataData := []byte(fmt.Sprintf(`{"theme": "%s", "id": "%s"}`, theme, id))
+	metadataCol := entity.NewColumnJSONBytes("metadata", [][]byte{metadataData})
+	typeCol := entity.NewColumnVarChar("type", []string{"image"})
+
+	_, err = m.client.Insert(ctx, m.collection, "", contentCol, vectorCol, metadataCol, typeCol)
+	return err
+}
+
+func (m *MilvusVectorDB) SearchImage(ctx context.Context, theme string, query string, topK int) ([]string, error) {
+	vectors, err := m.embedder.EmbedStrings(ctx, []string{query})
+	if err != nil {
+		return nil, fmt.Errorf("failed to embed query: %v", err)
+	}
+
+	v64 := vectors[0]
+	v32 := make([]float32, len(v64))
+	for i, v := range v64 {
+		v32[i] = float32(v)
+	}
+
+	searchParam, _ := entity.NewIndexIvfFlatSearchParam(10)
+	// 过滤 type = 'image'
+	expr := "type == 'image'"
+	if theme != "" {
+		expr = fmt.Sprintf("type == 'image' && metadata[\"theme\"] == '%s'", theme)
+	}
+
+	searchResult, err := m.client.Search(ctx, m.collection, []string{}, expr, []string{"content"}, []entity.Vector{entity.FloatVector(v32)}, "vector", entity.L2, topK, searchParam)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search images in milvus: %v", err)
+	}
+
+	var results []string
+	for _, res := range searchResult {
+		contentCol := res.Fields.GetColumn("content")
+		for i := 0; i < contentCol.Len(); i++ {
+			val, _ := contentCol.Get(i)
+			results = append(results, val.(string))
+		}
 	}
 	return results, nil
 }

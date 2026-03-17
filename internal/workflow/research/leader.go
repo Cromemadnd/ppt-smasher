@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"ppt-smasher/internal/config"
+	"ppt-smasher/internal/llm"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
@@ -50,13 +50,9 @@ func NewResearchLeaderNode() *compose.Lambda {
 	return compose.InvokableLambda(func(ctx context.Context, s TeamResearchState) (TeamResearchState, error) {
 		log.Printf("[ResearchTeam:Leader] 为主题『%s』规划调研维度...", s.Theme)
 
-		chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-			Model:   config.GlobalConfig.LLM.ResearcherModel,
-			APIKey:  config.GlobalConfig.LLM.APIKey,
-			BaseURL: config.GlobalConfig.LLM.BaseURL, // Assuming BaseURL is supported for OpenAI generic interface
-		})
-		if err != nil {
-			log.Printf("[ResearchTeam:Leader] 初始化模型失败: %v。将使用默认 mock 数据。", err)
+		chatModel := llm.GetResearcherModel()
+		if chatModel == nil {
+			log.Printf("[ResearchTeam:Leader] 未找到 Researcher 模型。将使用默认 mock 数据。")
 			return mockFallback(s), nil
 		}
 

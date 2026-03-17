@@ -7,9 +7,8 @@ import (
 	"log"
 	"strings"
 
-	"ppt-smasher/internal/config"
+	"ppt-smasher/internal/llm"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
@@ -43,13 +42,9 @@ func NewOutlineDirectorNode() *compose.Lambda {
 	return compose.InvokableLambda(func(ctx context.Context, s TeamContentState) (TeamContentState, error) {
 		log.Println("[ContentTeam:Director] 起草幻灯片大纲，选择模板Schema...")
 
-		chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-			Model:   config.GlobalConfig.LLM.ContentModel,
-			APIKey:  config.GlobalConfig.LLM.APIKey,
-			BaseURL: config.GlobalConfig.LLM.BaseURL,
-		})
-		if err != nil {
-			return s, fmt.Errorf("init model failed: %w", err)
+		chatModel := llm.GetContentModel()
+		if chatModel == nil {
+			return s, fmt.Errorf("content model not initialized")
 		}
 
 		chatTpl := prompt.FromMessages(schema.FString, schema.UserMessage(outlinePromptTemplate))

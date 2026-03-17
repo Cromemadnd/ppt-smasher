@@ -20,6 +20,10 @@ type VectorStore interface {
 	Retrieve(ctx context.Context, query string, opts ...einoretriever.Option) ([]*schema.Document, error)
 	AddDocumentChunk(ctx context.Context, chunks []string) error
 	SearchDocument(ctx context.Context, query string) ([]string, error)
+	// AddImageChunk 插入图片片段到向量库
+	AddImageChunk(ctx context.Context, theme string, id string, base64Data string, filePath string) error
+	// SearchImage 检索相关的图片片段
+	SearchImage(ctx context.Context, theme string, query string, topK int) ([]string, error)
 }
 
 var (
@@ -174,4 +178,20 @@ func SearchDocument(ctx context.Context, theme string, query string, topK int) (
 	}
 
 	return chunks, nil
+}
+
+// AddImageChunk 插入图片片段到向量库
+func AddImageChunk(ctx context.Context, theme string, id string, base64Data string, filePath string) error {
+	if vectorDB == nil {
+		return fmt.Errorf("vectorDB not initialized")
+	}
+	return vectorDB.AddImageChunk(ctx, theme, id, base64Data, filePath)
+}
+
+// SearchImage 检索相关的图片片段
+func SearchImage(ctx context.Context, theme string, query string, topK int) ([]string, error) {
+	if vectorDB == nil {
+		return nil, fmt.Errorf("vectorDB not initialized")
+	}
+	return vectorDB.SearchImage(ctx, theme, query, topK)
 }

@@ -8,9 +8,8 @@ import (
 	"log"
 	"strings"
 
-	"ppt-smasher/internal/config"
+	"ppt-smasher/internal/llm"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
@@ -57,13 +56,9 @@ func NewClusterLayoutNode() *compose.Lambda {
 			return s, nil
 		}
 
-		chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-			Model:   config.GlobalConfig.LLM.ContentModel,
-			APIKey:  config.GlobalConfig.LLM.APIKey,
-			BaseURL: config.GlobalConfig.LLM.BaseURL,
-		})
-		if err != nil {
-			return s, fmt.Errorf("failed to init chat model: %v", err)
+		chatModel := llm.GetContentModel()
+		if chatModel == nil {
+			return s, fmt.Errorf("content model not initialized")
 		}
 
 		// Prepare payload containing all current extracted styles

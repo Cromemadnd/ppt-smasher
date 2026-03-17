@@ -8,9 +8,8 @@ import (
 	"log"
 	"strings"
 
-	"ppt-smasher/internal/config"
+	"ppt-smasher/internal/llm"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
@@ -52,13 +51,9 @@ func parseJSONSnippet(text string) string {
 }
 
 func ExtractSchemaWithLLM(ctx context.Context, htmlView SlideHTMLSchema) (SlideLayoutSchema, error) {
-	chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-		Model:   config.GlobalConfig.LLM.VisualModel, // Use vision or regular model here
-		APIKey:  config.GlobalConfig.LLM.APIKey,
-		BaseURL: config.GlobalConfig.LLM.BaseURL,
-	})
-	if err != nil {
-		return SlideLayoutSchema{LayoutName: htmlView.LayoutName}, err
+	chatModel := llm.GetVisualModel()
+	if chatModel == nil {
+		return SlideLayoutSchema{LayoutName: htmlView.LayoutName}, fmt.Errorf("visual model not initialized")
 	}
 
 	chatTpl := prompt.FromMessages(schema.FString, schema.UserMessage(schemaExtractorPromptTemplate))

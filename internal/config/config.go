@@ -28,6 +28,7 @@ type SearchConfig struct {
 }
 
 type LLMConfig struct {
+	Provider          string `mapstructure:"provider"` // e.g. "openai", "ark"
 	APIKey            string `mapstructure:"api_key"`
 	BaseURL           string `mapstructure:"base_url"`
 	BossModel         string `mapstructure:"boss_model"`

@@ -114,3 +114,13 @@ func (v *PostgresVectorDB) SearchDocument(ctx context.Context, query string) ([]
 	}
 	return results, nil
 }
+
+func (v *PostgresVectorDB) AddImageChunk(ctx context.Context, theme string, id string, base64Data string, filePath string) error {
+	// Postgres 插件目前可能不支持多模态，暂时作为 mock 或待实现
+	return nil
+}
+
+func (v *PostgresVectorDB) SearchImage(ctx context.Context, theme string, query string, topK int) ([]string, error) {
+	// Postgres 插件暂不支持
+	return nil, nil
+}

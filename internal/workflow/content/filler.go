@@ -8,10 +8,9 @@ import (
 	"log"
 	"strings"
 
-	"ppt-smasher/internal/config"
 	"ppt-smasher/internal/db"
+	"ppt-smasher/internal/llm"
 
-	"github.com/cloudwego/eino-ext/components/model/openai"
 	"github.com/cloudwego/eino/components/prompt"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
@@ -51,13 +50,9 @@ func NewContentFillerNode() *compose.Lambda {
 	return compose.InvokableLambda(func(ctx context.Context, s TeamContentState) (TeamContentState, error) {
 		log.Println("[ContentTeam:Filler] 根据大纲起草详细文案，并填充入具体的骨架...")
 
-		chatModel, err := openai.NewChatModel(ctx, &openai.ChatModelConfig{
-			Model:   config.GlobalConfig.LLM.ContentModel,
-			APIKey:  config.GlobalConfig.LLM.APIKey,
-			BaseURL: config.GlobalConfig.LLM.BaseURL,
-		})
-		if err != nil {
-			return s, fmt.Errorf("init model failed: %w", err)
+		chatModel := llm.GetContentModel()
+		if chatModel == nil {
+			return s, fmt.Errorf("content model not initialized")
 		}
 
 		chatTpl := prompt.FromMessages(schema.FString, schema.UserMessage(fillerPromptTemplate))

@@ -28,11 +28,20 @@ func NewParallelTasksNode() *compose.Lambda {
 			mu.Unlock()
 		}()
 
-		// 2. 图片联网搜索
+		// 2. 图片联网搜索/向量库检索
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			imgs := searchImages(ctx, s.ImageQueries)
+			
+			// 新增：从向量库检索图片描述
+			for _, q := range s.ImageQueries {
+				vdbImgs, err := db.SearchImage(ctx, s.Theme, q, 3)
+				if err == nil {
+					imgs = append(imgs, vdbImgs...)
+				}
+			}
+
 			mu.Lock()
 			s.Images = append(s.Images, imgs...)
 			mu.Unlock()
@@ -48,19 +57,18 @@ func NewParallelTasksNode() *compose.Lambda {
 			mu.Unlock()
 		}()
 
-		// 4. 解析用户上传的参考资料 (MinerU + VLM)
+		// 4. 解析用户上传的参考资料 (MinerU + 多模态 Embedding)
 		if len(s.GivenDocuments) > 0 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				parseDocs, imgDescs, err := ParseDocs(ctx, s.GivenDocuments)
+				parseDocs, _, err := ParseDocs(ctx, s.Theme, s.GivenDocuments)
 				if err != nil {
 					log.Printf("[ResearchTeam:ParseDocs] 解析出错: %v", err)
 					return
 				}
 				mu.Lock()
 				s.Documents = append(s.Documents, parseDocs...)
-				s.Documents = append(s.Documents, imgDescs...)
 				mu.Unlock()
 			}()
 		}

@@ -7,6 +7,7 @@ require (
 	github.com/cloudwego/eino v0.8.3
 	github.com/cloudwego/eino-ext/components/embedding/ark v0.1.1
 	github.com/cloudwego/eino-ext/components/embedding/openai v0.0.0-20260313050455-88e279b3b32f
+	github.com/cloudwego/eino-ext/components/model/ark v0.1.65
 	github.com/cloudwego/eino-ext/components/model/openai v0.1.9
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
@@ -70,7 +71,7 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.23 // indirect
-	github.com/volcengine/volcengine-go-sdk v1.0.181 // indirect
+	github.com/volcengine/volcengine-go-sdk v1.2.9 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	github.com/yargevad/filepathx v1.0.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect

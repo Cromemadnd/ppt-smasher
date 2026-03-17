@@ -71,13 +71,12 @@ func TestParseDocs(t *testing.T) {
 	ctx := context.Background()
 	givenDocs := []string{"doc1.pdf", "doc2.docx"}
 
-	texts, imgs, err := ParseDocs(ctx, givenDocs)
+	texts, ids, err := ParseDocs(ctx, "test-theme", givenDocs)
 
 	assert.NoError(t, err)
 	assert.Len(t, texts, 2)
-	assert.Len(t, imgs, 2)
+	assert.Len(t, ids, 2)
 	assert.Contains(t, texts[0], "doc1.pdf")
-	assert.Contains(t, imgs[0], "Image Description")
 }
 
 func TestParseJSONSnippet(t *testing.T) {

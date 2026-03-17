@@ -2,27 +2,29 @@ package research
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"ppt-smasher/internal/config"
+	"ppt-smasher/internal/db"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func TestResearchWorkflow_Basic(t *testing.T) {
-	// Initialize custom config for test
-	config.GlobalConfig = &config.Config{
-		LLM: config.LLMConfig{
-			ResearcherModel: "gpt-4",
-			APIKey:          "mock_key",
-			BaseURL:         "mock_url",
-		},
+	// 如果没有配置文件或环境变量，则跳过
+	if _, err := os.Stat("../../../config.yaml"); os.IsNotExist(err) && os.Getenv("POSTGRES_HOST") == "" {
+		t.Skip("Skipping integration test; config.yaml or POSTGRES_HOST environment variable not set")
 	}
 
-	// Mock DB to avoid initialization error in NewIndexVDBNode
-	// We don't need real DB for this basic workflow test
+	// Initialize real config
+	config.InitConfig([]string{"../../../"})
 
 	ctx := context.Background()
+
+	// 初始化真实的数据库连接
+	db.InitVectorDB(ctx)
+
 	state := TeamResearchState{
 		Theme:          "人工神经网络",
 		GivenDocuments: []string{"test_intro.pdf"},
@@ -32,19 +34,11 @@ func TestResearchWorkflow_Basic(t *testing.T) {
 	compiled, err := g.Compile(ctx)
 	assert.NoError(t, err)
 
-	// Since NewResearchLeaderNode and search functions call real external APIs,
-	// they should fall back to mock data or error if API fails.
-	// We are testing the graph structure and basic workflow logic.
-
 	// Invoke the graph
 	result, err := compiled.Invoke(ctx, state)
 
-	// If it fails with "vectorDB not initialized", we know the flow reached there.
-	// But let's check the state before it might have failed.
 	if err != nil {
-		assert.Contains(t, err.Error(), "vectorDB not initialized")
-		t.Log("Workflow reached IndexVDBNode as expected, failing on uninitialized DB.")
-		return
+		t.Fatalf("Workflow failed: %v", err)
 	}
 
 	// Verified state transitions
@@ -53,6 +47,15 @@ func TestResearchWorkflow_Basic(t *testing.T) {
 	assert.NotEmpty(t, result.DataQueries)
 
 	// ParallelTasks should have gathered documents
-	// Based on mockFallback in leader.go and ParseDocs mock in parse_docs.go
 	assert.GreaterOrEqual(t, len(result.Documents), 1)
+
+	// VDB should be indexed
+	assert.True(t, result.VDBStatus)
+
+	// Optional: Check if we can search for something just indexed
+	// Note: result.Theme is used as collection name in AddDocumentChunk
+	searchRes, err := db.SearchDocument(ctx, result.Theme, "神经网络", 1)
+	if err == nil && len(searchRes) > 0 {
+		t.Logf("Successfully retrieved indexed content: %s", searchRes[0])
+	}
 }

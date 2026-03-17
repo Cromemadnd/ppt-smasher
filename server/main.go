@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"ppt-smasher/internal/config"
 	"ppt-smasher/internal/db"
+	"ppt-smasher/internal/llm"
 	"ppt-smasher/internal/workflow"
 	"ppt-smasher/internal/ws"
 )
@@ -16,6 +17,9 @@ func main() {
 
 	// 初始化 Postgres + pgvector 向量库
 	db.InitVectorDB(context.Background())
+
+	// 初始化 LLM 模型
+	llm.InitChatModels(context.Background())
 
 	// 1.1 初始化 Agent 编排
 	if err := workflow.InitWorkflow(); err != nil {
